@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+
+<head></head>
+
+<body>
+    <input type="file" id="selectFile" accept="audio/wav" />
+    <p id="message"></p>
+
+    <script src="settings.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script>
+        const functionAppName = settings.functionAppName;
+        const $selectFile = document.getElementById('selectFile');
+        const $message = document.getElementById('message');
+
+        $selectFile.addEventListener('change', async () => {
+            var file = $selectFile.files[0];
+            if (!file) return;
+
+            $message.textContent = "Uploading...";
+            const fileName = file.name;
+            const url = `https://${functionAppName}.azurewebsites.net/api/uploadurl?name=${fileName}`;
+            const resp = await axios.get(url);
+            const uploadUrl = resp.data;
+
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const headers = {
+                    'x-ms-blob-type': 'BlockBlob',
+                    'Content-Type': 'audio/wav'
+                }
+                await axios.put(uploadUrl, e.target.result, { headers });
+                $message.textContent = "Uploaded.";
+            }
+            reader.readAsArrayBuffer(file);
+        });
+    </script>
+</body>
+
+</html>

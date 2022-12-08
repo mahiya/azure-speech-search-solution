@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+    <style>
+        p {
+            margin: 0;
+            padding: 0;
+        }
+
+        div.doc {
+            border: 1px solid #aaa;
+            padding: 5px;
+            margin-top: 5px;
+        }
+
+        div.doc:hover {
+            background-color: #fafafa;
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="app">
+        <div class="control">
+            <input v-model="search" type="text" placeholder="検索" />
+        </div>
+        <div class="doc" v-for="doc in docs" v-on:click="onDocClicked(doc)">
+            <p>{{doc.phrase}}</p>
+            <p style="font-size: 12px">{{doc.account}}/{{doc.container}}/{{doc.blob}} ({{doc["@search.score"]}})</p>
+            <audio v-if="doc.audioUrl" v-bind:src="doc.audioUrl" controls></audio>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/vue@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="settings.js"></script>
+    <script>
+        const cognitiveSearchName = settings.cognitiveSearchName;
+        const indexName = settings.indexName;
+        const queryKey = settings.queryKey;
+        const functionAppName = settings.functionAppName;
+
+        var app = new Vue({
+            el: '#app',
+            data: {
+                search: "",
+                docs: []
+            },
+            mounted() {
+                this.searchDocuments();
+            },
+            watch: {
+                search: function (newValue, oldValue) {
+                    this.searchDocuments();
+                }
+            },
+            methods: {
+                searchDocuments: async function () {
+                    const queryParameters = {
+                        "api-version": "2020-06-30",
+                        "search": this.search,
+                        "$top": 10
+                    };
+                    const queryString = Object.keys(queryParameters).map(key => [key, queryParameters[key]].join("=")).join("&");
+                    const url = `https://${cognitiveSearchName}.search.windows.net/indexes/${indexName}/docs?${queryString}`;
+                    const headers = {
+                        "Content-Type": "application/json",
+                        "api-key": queryKey
+                    };
+                    const resp = await axios.get(url, { headers });
+                    console.log(resp.data.value);
+                    this.docs = resp.data.value.map(v => { v.audioUrl = ""; return v; });
+                },
+                onDocClicked: async function (doc) {
+                    const url = `https://${functionAppName}.azurewebsites.net/api/downloadurl?name=${doc.blob}`;
+                    const resp = await axios.get(url);
+                    function convertSecToStr(offset) {
+                        const hour = ('00' + Math.floor(offset / 3600)).slice(-2);
+                        const min = ('00' + Math.floor(offset % 3600 / 60)).slice(-2);
+                        const sec = ('00' + offset % 60).slice(-2);
+                        return `${hour}:${min}:${sec}`;
+                    }
+                    doc.audioUrl = resp.data + `#t=${convertSecToStr(doc.offset)}`;
+                }
+            }
+        })
+    </script>
+
+</body>
+
+</html>

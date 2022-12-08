@@ -1,0 +1,7 @@
+.vs
+*.sln
+bin
+obj
+settings.js
+Properties
+local.settings.json
